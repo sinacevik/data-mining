@@ -17,7 +17,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neural_network import MLPClassifier
 from xgboost import XGBClassifier
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
+from sklearn.preprocessing import LabelEncoder
 
 # -----------------------------
 # 2. KLASÖR YAPISINA GÖRE VERİYİ OLUŞTUR
@@ -52,19 +53,13 @@ print("✅ Veri seti başarıyla oluşturuldu.")
 # -----------------------------
 # 3. EĞİTİM VE TEST VERİLERİNİ AYIR
 # -----------------------------
-from sklearn.preprocessing import LabelEncoder
-
-# Eğitim ve test setini ayır
 X = df['text']
 y = df['author']
 
-# Yazar isimlerini sayıya çevir
 label_encoder = LabelEncoder()
 y_encoded = label_encoder.fit_transform(y)
 
-# Eğitim-test ayır
 X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.20, random_state=42)
-
 
 # -----------------------------
 # 4. ÖZELLİK ÇIKARIM METOTLARI
@@ -109,7 +104,6 @@ vector_methods = [
 results = []
 
 for v_method in vector_methods:
-    #deneme
     print(f"\n📌 Özellik çıkarım yöntemi: {v_method}")
     vectorizer = get_vectorizer(v_method)
     X_train_vec = vectorizer.fit_transform(X_train)
@@ -134,13 +128,20 @@ for v_method in vector_methods:
             "F1-score": f1
         })
 
+        # Sayısal tahminleri geri etikete çevir (yazar isimleri)
+        y_pred_names = label_encoder.inverse_transform(y_pred)
+        y_test_names = label_encoder.inverse_transform(y_test)
+
+        print("\n🧾 Classification Report:")
+        print(f"Model: {model_name}, Özellik: {v_method}")
+        print(classification_report(y_test_names, y_pred_names, zero_division=0))
+
 # -----------------------------
 # 7. SONUÇLARI GÖSTER
 # -----------------------------
 results_df = pd.DataFrame(results)
 print("\n📊 Model Performans Sonuçları:")
 print(results_df.sort_values(by="F1-score", ascending=False))
- 
 
 # CSV’ye kaydet (rapor için)
 results_df.to_csv("model_sonuclari.csv", index=False)
