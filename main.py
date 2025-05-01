@@ -2,7 +2,7 @@
 # Data Mining Course - Sina
 
 # -----------------------------
-# 1. GEREKLİ KÜTÜPHANELERİ YÜKLE
+# 1. REQUIRED LIBRARIES
 # -----------------------------
 import os
 import pandas as pd
@@ -21,7 +21,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from sklearn.preprocessing import LabelEncoder
 
 # -----------------------------
-# 2. KLASÖR YAPISINA GÖRE VERİYİ OLUŞTUR
+# 2. LOAD DATA ACCORDING TO FOLDER STRUCTURE
 # -----------------------------
 def create_dataset(base_dir):
     data = []
@@ -39,19 +39,19 @@ def create_dataset(base_dir):
                                 "text": content
                             })
                     except Exception as e:
-                        print(f"Hata: {file_path} => {e}")
+                        print(f"Error: {file_path} => {e}")
     df = pd.DataFrame(data)
     df.dropna(inplace=True)
     df.reset_index(drop=True, inplace=True)
     df.to_csv("full_dataset.csv", index=False)
     return df
 
-print("🔄 Veri seti oluşturuluyor...")
+print("🔄 Creating dataset...")
 df = create_dataset("dataset_authorship")
-print("✅ Veri seti başarıyla oluşturuldu.")
+print("✅ Dataset created successfully.")
 
 # -----------------------------
-# 3. EĞİTİM VE TEST VERİLERİNİ AYIR
+# 3. SPLIT DATA INTO TRAINING AND TEST SETS
 # -----------------------------
 X = df['text']
 y = df['author']
@@ -62,8 +62,9 @@ y_encoded = label_encoder.fit_transform(y)
 X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.20, random_state=42)
 
 # -----------------------------
-# 4. ÖZELLİK ÇIKARIM METOTLARI
+# 4. FEATURE EXTRACTION METHODS
 # -----------------------------
+
 def get_vectorizer(method):
     if method == "tfidf_word":
         return TfidfVectorizer(analyzer='word')
@@ -76,10 +77,10 @@ def get_vectorizer(method):
     elif method == "tfidf_char_3gram":
         return TfidfVectorizer(analyzer='char', ngram_range=(3,3))
     else:
-        raise ValueError("Bilinmeyen özellik çıkarım metodu")
+        raise ValueError("Unknown feature extraction method")
 
 # -----------------------------
-# 5. SINIFLANDIRMA MODELLERİ
+# 5. CLASSIFICATION MODELS
 # -----------------------------
 models = {
     "RandomForest": RandomForestClassifier(),
@@ -91,7 +92,7 @@ models = {
 }
 
 # -----------------------------
-# 6. EĞİTİM, TAHMİN VE DEĞERLENDİRME
+# 6. TRAINING, PREDICTION, AND EVALUATION
 # -----------------------------
 vector_methods = [
     "tfidf_word",
@@ -104,7 +105,7 @@ vector_methods = [
 results = []
 
 for v_method in vector_methods:
-    print(f"\n📌 Özellik çıkarım yöntemi: {v_method}")
+    print(f"\n📌 Feature extraction method: {v_method}")
     vectorizer = get_vectorizer(v_method)
     X_train_vec = vectorizer.fit_transform(X_train)
     X_test_vec = vectorizer.transform(X_test)
@@ -128,29 +129,114 @@ for v_method in vector_methods:
             "F1-score": f1
         })
 
-        # Sayısal tahminleri geri etikete çevir (yazar isimleri)
+        # Convert numerical predictions back to author names
         y_pred_names = label_encoder.inverse_transform(y_pred)
         y_test_names = label_encoder.inverse_transform(y_test)
 
         print("\n🧾 Classification Report:")
-        print(f"Model: {model_name}, Özellik: {v_method}")
+        print(f"Model: {model_name}, Feature: {v_method}")
         print(classification_report(y_test_names, y_pred_names, zero_division=0))
 
 # -----------------------------
-# 7. SONUÇLARI GÖSTER
+# 7. DISPLAY RESULTS
 # -----------------------------
 results_df = pd.DataFrame(results)
-print("\n📊 Model Performans Sonuçları:")
+print("\n📊 Model Performance Results:")
 print(results_df.sort_values(by="F1-score", ascending=False))
 
-# CSV’ye kaydet (rapor için)
+# Save to CSV (for reporting)
 results_df.to_csv("model_sonuclari.csv", index=False)
 
-# Grafikle görselleştir
+# Visualize with bar plot
 sns.set(style="whitegrid")
 plt.figure(figsize=(14,6))
 sns.barplot(data=results_df, x="Model", y="F1-score", hue="Vectorizer")
 plt.xticks(rotation=45)
-plt.title("Modellere Göre F1-Skorları")
+plt.title("F1 Scores by Model")
+plt.tight_layout()
+plt.show()
+
+# -----------------------------
+# 8. BERT INTEGRATION
+# -----------------------------
+from transformers import BertTokenizer, BertModel
+import torch # type: ignore
+from tqdm import tqdm # type: ignore
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# Load tokenizer and model
+tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+bert_model = BertModel.from_pretrained("bert-base-uncased")
+bert_model.to(device)
+
+# Function to convert texts into BERT embeddings
+def get_bert_embeddings(texts, tokenizer, model, max_length=512):
+    embeddings = []
+    model.eval()
+    with torch.no_grad():
+        for text in tqdm(texts, desc="Vectorizing with BERT"):
+            inputs = tokenizer(text, return_tensors="pt", truncation=True, padding="max_length", max_length=max_length)
+            inputs = {key: val.to(device) for key, val in inputs.items()}
+            outputs = model(**inputs)
+            cls_embedding = outputs.last_hidden_state[:, 0, :].squeeze().cpu().numpy()  # [CLS] token representation
+            embeddings.append(cls_embedding)
+    return np.array(embeddings)
+
+print("\n📦 Starting BERT vectorization...")
+X_train_bert = get_bert_embeddings(X_train.tolist(), tokenizer, bert_model)
+X_test_bert = get_bert_embeddings(X_test.tolist(), tokenizer, bert_model)
+print("✅ BERT vectorization completed.")
+
+# Use only dense models (suitable for BERT output)
+bert_models = {
+    "RandomForest": RandomForestClassifier(),
+    "MLP": MLPClassifier(max_iter=500),
+    "SVM": SVC()
+}
+
+# Train and test models using BERT features
+for model_name, model in bert_models.items():
+    print(f"\n🧠 [BERT] Model: {model_name}")
+    model.fit(X_train_bert, y_train)
+    y_pred = model.predict(X_test_bert)
+
+    acc = accuracy_score(y_test, y_pred)
+    prec = precision_score(y_test, y_pred, average='weighted', zero_division=0)
+    rec = recall_score(y_test, y_pred, average='weighted')
+    f1 = f1_score(y_test, y_pred, average='weighted')
+
+    results.append({
+        "Vectorizer": "BERT",
+        "Model": model_name,
+        "Accuracy": acc,
+        "Precision": prec,
+        "Recall": rec,
+        "F1-score": f1
+    })
+
+    y_pred_names = label_encoder.inverse_transform(y_pred)
+    y_test_names = label_encoder.inverse_transform(y_test)
+
+    print("\n🧾 Classification Report:")
+    print(f"Model: {model_name}, Feature: BERT")
+    print(classification_report(y_test_names, y_pred_names, zero_division=0))
+
+# -----------------------------
+# 9. DISPLAY UPDATED RESULTS
+# -----------------------------
+results_df = pd.DataFrame(results)
+print("\n📊 Updated Model Performance Results:")
+print(results_df.sort_values(by="F1-score", ascending=False))
+
+# Save to CSV
+results_df.to_csv("model_sonuclari.csv", index=False)
+
+# Visualize again
+sns.set(style="whitegrid")
+plt.figure(figsize=(14,6))
+sns.barplot(data=results_df, x="Model", y="F1-score", hue="Vectorizer")
+plt.xticks(rotation=45)
+plt.title("F1 Scores by Model (TF-IDF & BERT)")
 plt.tight_layout()
 plt.show()
