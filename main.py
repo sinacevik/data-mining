@@ -1,9 +1,7 @@
-# Author Classification Project - Full Implementation
-# Data Mining Course - Sina
 
-# -----------------------------
+
 # 1. REQUIRED LIBRARIES
-# -----------------------------
+
 import os
 import pandas as pd
 import numpy as np
@@ -20,9 +18,9 @@ from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 from sklearn.preprocessing import LabelEncoder
 
-# -----------------------------
+
 # 2. LOAD DATA ACCORDING TO FOLDER STRUCTURE
-# -----------------------------
+
 def create_dataset(base_dir):
     data = []
     for author_folder in os.listdir(base_dir):
@@ -50,9 +48,9 @@ print("🔄 Creating dataset...")
 df = create_dataset("dataset_authorship")
 print("✅ Dataset created successfully.")
 
-# -----------------------------
+
 # 3. SPLIT DATA INTO TRAINING AND TEST SETS
-# -----------------------------
+
 X = df['text']
 y = df['author']
 
@@ -61,9 +59,9 @@ y_encoded = label_encoder.fit_transform(y)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.20, random_state=42)
 
-# -----------------------------
+
 # 4. FEATURE EXTRACTION METHODS
-# -----------------------------
+
 
 def get_vectorizer(method):
     if method == "tfidf_word":
@@ -79,9 +77,9 @@ def get_vectorizer(method):
     else:
         raise ValueError("Unknown feature extraction method")
 
-# -----------------------------
+
 # 5. CLASSIFICATION MODELS
-# -----------------------------
+
 models = {
     "RandomForest": RandomForestClassifier(),
     "SVM": SVC(),
@@ -91,9 +89,9 @@ models = {
     "DecisionTree": DecisionTreeClassifier()
 }
 
-# -----------------------------
+
 # 6. TRAINING, PREDICTION, AND EVALUATION
-# -----------------------------
+
 vector_methods = [
     "tfidf_word",
     "tfidf_word_2gram",
@@ -137,9 +135,9 @@ for v_method in vector_methods:
         print(f"Model: {model_name}, Feature: {v_method}")
         print(classification_report(y_test_names, y_pred_names, zero_division=0))
 
-# -----------------------------
+
 # 7. DISPLAY RESULTS
-# -----------------------------
+
 results_df = pd.DataFrame(results)
 print("\n📊 Model Performance Results:")
 print(results_df.sort_values(by="F1-score", ascending=False))
@@ -156,9 +154,9 @@ plt.title("F1 Scores by Model")
 plt.tight_layout()
 plt.show()
 
-# -----------------------------
+
 # 8. BERT INTEGRATION
-# -----------------------------
+
 from transformers import BertTokenizer, BertModel
 import torch # type: ignore
 from tqdm import tqdm # type: ignore
@@ -222,9 +220,9 @@ for model_name, model in bert_models.items():
     print(f"Model: {model_name}, Feature: BERT")
     print(classification_report(y_test_names, y_pred_names, zero_division=0))
 
-# -----------------------------
+
 # 9. DISPLAY UPDATED RESULTS
-# -----------------------------
+
 results_df = pd.DataFrame(results)
 print("\n📊 Updated Model Performance Results:")
 print(results_df.sort_values(by="F1-score", ascending=False))
